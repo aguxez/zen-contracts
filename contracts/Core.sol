@@ -162,21 +162,21 @@ contract Core is Context, ERC721Holder {
         // Takes max number of cells in a trade and loops through them
         for (uint256 i = 1; i <= _trade.amountOfCells; i++) {
             uint256 tokenId = _cellToTokenId[_tradeId][i];
-            address _transferTo = _tokenToUserAddress[_tradeId][tokenId];
+            address tokenOwner = _tokenToUserAddress[_tradeId][tokenId];
 
             // If it is 0 then no token was put in this cell
             if (tokenId != 0) {
-                _sendTokenToAddress(_trade, tokenId, _transferTo);
+                _sendTokenToAddress(_trade, tokenId, tokenOwner);
             }
         }
     }
 
-    function _sendTokenToAddress(Trade memory _trade, uint256 _tokenId, address _transferTo) private {
+    function _sendTokenToAddress(Trade memory _trade, uint256 _tokenId, address _tokenOwner) private {
         // Will check to which account the token should be sent to.
-        if (_transferTo == _trade.starter) {
-            _trade.starterContract.safeTransferFrom(address(this), _transferTo, _tokenId);
-        } else if (_transferTo == _trade.receiver) {
-            _trade.receiverContract.safeTransferFrom(address(this), _transferTo, _tokenId);
+        if (_tokenOwner == _trade.starter) {
+            _trade.starterContract.safeTransferFrom(address(this), _trade.receiver, _tokenId);
+        } else if (_tokenOwner == _trade.receiver) {
+            _trade.receiverContract.safeTransferFrom(address(this), _trade.starter, _tokenId);
         }
     }
 }

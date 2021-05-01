@@ -159,12 +159,12 @@ describe("Core", async () => {
         await coreInstance.connect(acc[1]).readyToTransfer(tradeId);
 
         // Token 1 and 3 should be under 'acc[1]' ownership
-        expect(await erc721Instance.ownerOf(1)).to.equal(owner.address);
-        expect(await erc721Instance.ownerOf(3)).to.equal(owner.address);
+        expect(await erc721Instance.ownerOf(1)).to.equal(acc[1].address);
+        expect(await erc721Instance.ownerOf(3)).to.equal(acc[1].address);
 
         // Token 2 and 4 should be under 'owner' ownership
-        expect(await erc721Instance.ownerOf(2)).to.equal(acc[1].address);
-        expect(await erc721Instance.ownerOf(4)).to.equal(acc[1].address);
+        expect(await erc721Instance.ownerOf(2)).to.equal(owner.address);
+        expect(await erc721Instance.ownerOf(4)).to.equal(owner.address);
       });
     });
   });
