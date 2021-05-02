@@ -47,7 +47,7 @@ describe("Core", async () => {
       it("should revert if trade has been started already", async () => {
         await startTradeSetup();
 
-        expect(startTradeSetup()).to.be.revertedWith(
+        await expect(startTradeSetup()).to.be.revertedWith(
           "Core: trade already exists"
         );
       });
@@ -107,7 +107,7 @@ describe("Core", async () => {
     });
   });
 
-  describe("readyToTransfer", async () => {
+  describe("changeUserReadiness", async () => {
     beforeEach("create token and send to accounts", async () => {
       await createTwoTokens();
     });
@@ -127,19 +127,20 @@ describe("Core", async () => {
 
     describe("valid operation", async () => {
       it("should make user ready to trade", async () => {
-        let tx = await coreInstance.readyToTransfer(tradeId);
-        tx = await tx.wait();
-
-        expect(tx.events[0].event).to.equal("UserTradeStateChange");
+        await expect(await coreInstance.changeUserReadiness(tradeId, true))
+          .to.emit(coreInstance, "UserTradeStateChange")
+          .withArgs(tradeId, owner.address, true);
       });
 
       it("should finalize trade when both users are ready", async () => {
-        await coreInstance.readyToTransfer(tradeId);
-        let tx = await coreInstance.connect(acc[1]).readyToTransfer(tradeId);
-        tx = await tx.wait();
+        await coreInstance.changeUserReadiness(tradeId, true);
+        let tx = await coreInstance
+          .connect(acc[1])
+          .changeUserReadiness(tradeId, true);
 
-        let event = tx.events.filter(x => x.event == "TradeFinalized");
-        expect(event).to.not.be.empty;
+        await expect(tx)
+          .to.emit(coreInstance, "TradeFinalized")
+          .withArgs(tradeId);
 
         let trade = await coreInstance.getTrade(tradeId);
         expect(trade[5]).to.equal(2);
@@ -155,8 +156,8 @@ describe("Core", async () => {
         await erc721Instance.connect(acc[1]).approve(coreInstance.address, 4);
         await coreInstance.connect(acc[1]).addTokenToTrade(tradeId, 4, 5);
 
-        await coreInstance.readyToTransfer(tradeId);
-        await coreInstance.connect(acc[1]).readyToTransfer(tradeId);
+        await coreInstance.changeUserReadiness(tradeId, true);
+        await coreInstance.connect(acc[1]).changeUserReadiness(tradeId, true);
 
         // Token 1 and 3 should be under 'acc[1]' ownership
         expect(await erc721Instance.ownerOf(1)).to.equal(acc[1].address);
@@ -165,6 +166,14 @@ describe("Core", async () => {
         // Token 2 and 4 should be under 'owner' ownership
         expect(await erc721Instance.ownerOf(2)).to.equal(owner.address);
         expect(await erc721Instance.ownerOf(4)).to.equal(owner.address);
+      });
+
+      it("should be able to mark the user as un-ready", async () => {
+        await coreInstance.changeUserReadiness(tradeId, true);
+
+        expect(await coreInstance.changeUserReadiness(tradeId, false))
+          .to.emit(coreInstance, "UserTradeStateChange")
+          .withArgs(tradeId, owner.address, false);
       });
     });
   });

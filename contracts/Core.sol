@@ -103,22 +103,28 @@ contract Core is Context, ERC721Holder {
         userTracker.tokenContract.safeTransferFrom(_msgSender(), address(this), _tokenId);
     }
 
-    function readyToTransfer(bytes32 _tradeId) external {
+    function changeUserReadiness(bytes32 _tradeId, bool _state) external {
         Trade storage trade = _trades[_tradeId];
+
+        // This returns the check boolean we need to use in the require depending on the `_state`
+        // argument
+        bool userState = _state
+            ? !_isUserReadyToTrade[_tradeId][_msgSender()]
+            : _isUserReadyToTrade[_tradeId][_msgSender()];
 
         // Pre-checks
         require(_msgSender() == trade.starter || _msgSender() == trade.receiver, "Core: user not involved in trade");
-        require(!_isUserReadyToTrade[_tradeId][_msgSender()], "Core: user is ready to trade already");
+        require(userState, "Core: user is ready to trade already");
         require(trade.state == TradeState.STARTED, "Core: trade has already finalized");
 
-        bool isUserReady = true;
-
         // User finalized trade already
-        _isUserReadyToTrade[_tradeId][_msgSender()] = isUserReady;
+        _isUserReadyToTrade[_tradeId][_msgSender()] = _state;
 
-        _maybeTransferTokens(_tradeId, trade);
+        if (_state) {
+            _maybeTransferTokens(_tradeId, trade);
+        }
 
-        emit UserTradeStateChange(_tradeId, _msgSender(), isUserReady);
+        emit UserTradeStateChange(_tradeId, _msgSender(), _state);
     }
 
     function getTrade(bytes32 _tradeId)
