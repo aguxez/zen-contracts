@@ -45,6 +45,20 @@ contract Core is Context, ERC721Holder {
         IERC721 _receiverContract
     );
 
+    event TokenAddedToTrade(
+        bytes32 indexed _tradeId,
+        address _owner,
+        uint256 _tokenId,
+        uint256 _cell
+    );
+
+    event TokenRemovedFromTrade(
+        bytes32 indexed _tradeId,
+        address _owner,
+        uint256 _tokenId,
+        uint256 _cell
+    );
+
     event TradeExtended(bytes32 indexed _tradeId, address _owner, uint256 _tokenId);
     event TradeFinalized(bytes32 _tradeId);
     event UserTradeStateChange(bytes32 indexed _tradeId, address _user, bool _isReady);
@@ -83,12 +97,12 @@ contract Core is Context, ERC721Holder {
     function addTokenToTrade(bytes32 _tradeId, uint256 _tokenId, uint256 _cell) external {
         ContractTracker memory userTracker = _contractsTracker[_tradeId][_msgSender()];
         Trade memory trade = _trades[_tradeId];
-        uint256 tokenCell = _cellToTokenId[_tradeId][_cell];
+        uint256 tokenIdInCell = _cellToTokenId[_tradeId][_cell];
 
         // Pre-checks
         require(_cell > 0, "Core: cannot use cell 0");
         require(_cell <= trade.amountOfCells, "Core: cell cannot be more than max number of cells");
-        require(tokenCell == 0, "Core: token cell not available");
+        require(tokenIdInCell == 0, "Core: token cell not available");
         require(_ownerOfToken(_msgSender(), _tokenId, userTracker.tokenContract), "Core: not owner of token");
         require(_weAreApproved(userTracker.tokenContract, _tokenId), "Core: contract not approved");
         require(_trades[_tradeId].state == TradeState.STARTED, "Core: trade has already finalized");
@@ -101,6 +115,27 @@ contract Core is Context, ERC721Holder {
 
         // Transfers token from the user to us
         userTracker.tokenContract.safeTransferFrom(_msgSender(), address(this), _tokenId);
+
+        emit TokenAddedToTrade(_tradeId, _msgSender(), _tokenId, _cell);
+    }
+
+    function removeTokenFromTrade(bytes32 _tradeId, uint256 _cell) external {
+        uint256 tokenIdInCell = _cellToTokenId[_tradeId][_cell];
+
+        // Pre-checks
+        require(tokenIdInCell != 0, "Core: no token found for cell");
+        require(_tokenToUserAddress[_tradeId][tokenIdInCell] == _msgSender(), "Core: unauthorized signer");
+
+        // Cleans state for this token
+        delete _cellToTokenId[_tradeId][_cell];
+        delete _tokenToUserAddress[_tradeId][tokenIdInCell];
+
+        // Transfers to caller
+        ContractTracker memory userContract = _contractsTracker[_tradeId][_msgSender()];
+
+        userContract.tokenContract.safeTransferFrom(address(this), _msgSender(), tokenIdInCell);
+
+        emit TokenRemovedFromTrade(_tradeId, _msgSender(), tokenIdInCell, _cell);
     }
 
     function changeUserReadiness(bytes32 _tradeId, bool _state) external {

@@ -36,7 +36,7 @@ describe("Core", async () => {
       let tradeInfo = await coreInstance.getTrade(tradeId);
 
       expect(tradeInfo[0]).to.equal(owner.address);
-      expect(tradeInfo[1]).to.equal(acc[1].address);
+      expect(tradeInfo[1]).to.equal(acc[0].address);
       expect(tradeInfo[2]).to.equal(erc721Instance.address);
       expect(tradeInfo[3]).to.equal(erc721Instance.address);
       expect(tradeInfo[4]).to.equal(12);
@@ -68,8 +68,12 @@ describe("Core", async () => {
     });
 
     describe("valid appending", async () => {
-      it("should make contract owner of the token", async () => {
-        await coreInstance.connect(acc[1]).addTokenToTrade(tradeId, 2, 1);
+      it("should transfer token to contract and notify", async () => {
+        await expect(
+          coreInstance.connect(acc[0]).addTokenToTrade(tradeId, 2, 1)
+        )
+          .to.emit(coreInstance, "TokenAddedToTrade")
+          .withArgs(tradeId, acc[0].address, 2, 1);
 
         // Token should be sent from owner to the contract
         expect(await erc721Instance.ownerOf(2)).to.equal(coreInstance.address);
@@ -87,7 +91,7 @@ describe("Core", async () => {
         await coreInstance.addTokenToTrade(tradeId, 1, 1);
 
         await expect(
-          coreInstance.connect(acc[1]).addTokenToTrade(tradeId, 2, 1)
+          coreInstance.connect(acc[0]).addTokenToTrade(tradeId, 2, 1)
         ).to.be.revertedWith("Core: token cell not available");
       });
 
@@ -107,6 +111,68 @@ describe("Core", async () => {
     });
   });
 
+  describe("removeTokenFromTrade", async () => {
+    beforeEach("create token and send to accounts", async () => {
+      await createTwoTokens();
+    });
+
+    beforeEach("approves contract for token", async () => {
+      await approveTokens(1, 2);
+    });
+
+    beforeEach("creates trade", async () => {
+      await startTradeSetup();
+    });
+
+    beforeEach("add token to trade", async () => {
+      await coreInstance.addTokenToTrade(tradeId, 1, 1);
+      await coreInstance.connect(acc[0]).addTokenToTrade(tradeId, 2, 3);
+    });
+
+    describe("valid removal", async () => {
+      it("should remove a token from a trade and transfer to user", async () => {
+        await expect(coreInstance.addTokenToTrade(tradeId, 1, 1)).to.be
+          .reverted;
+
+        await expect(coreInstance.removeTokenFromTrade(tradeId, 1))
+          .to.emit(coreInstance, "TokenRemovedFromTrade")
+          .withArgs(tradeId, owner.address, 1, 1);
+
+        expect(await erc721Instance.ownerOf(1)).to.equal(owner.address);
+      });
+
+      it("should allow a new horse to be put under the removed cell", async () => {
+        await coreInstance.removeTokenFromTrade(tradeId, 1);
+
+        // acc[0] is the owner of token ID 4
+        await createTwoTokens();
+
+        // Approves the same token as it was removed
+        await erc721Instance.connect(acc[0]).approve(coreInstance.address, 4);
+
+        await expect(
+          coreInstance.connect(acc[0]).addTokenToTrade(tradeId, 4, 1)
+        )
+          .to.emit(coreInstance, "TokenAddedToTrade")
+          .withArgs(tradeId, acc[0].address, 4, 1);
+      });
+    });
+
+    describe("reverts", async () => {
+      it("should revert if horse is not registered", async () => {
+        await expect(
+          coreInstance.removeTokenFromTrade(tradeId, 4)
+        ).to.be.revertedWith("Core: no token found for cell");
+      });
+
+      it("should revert if not the owner tries to remove a token from the trade", async () => {
+        await expect(
+          coreInstance.connect(acc[0]).removeTokenFromTrade(tradeId, 1)
+        ).to.be.revertedWith("Core: unauthorized signer");
+      });
+    });
+  });
+
   describe("changeUserReadiness", async () => {
     beforeEach("create token and send to accounts", async () => {
       await createTwoTokens();
@@ -122,7 +188,7 @@ describe("Core", async () => {
 
     beforeEach("adds token to trade", async () => {
       await coreInstance.addTokenToTrade(tradeId, 1, 3);
-      await coreInstance.connect(acc[1]).addTokenToTrade(tradeId, 2, 1);
+      await coreInstance.connect(acc[0]).addTokenToTrade(tradeId, 2, 1);
     });
 
     describe("valid operation", async () => {
@@ -135,7 +201,7 @@ describe("Core", async () => {
       it("should finalize trade when both users are ready", async () => {
         await coreInstance.changeUserReadiness(tradeId, true);
         let tx = await coreInstance
-          .connect(acc[1])
+          .connect(acc[0])
           .changeUserReadiness(tradeId, true);
 
         await expect(tx)
@@ -152,16 +218,16 @@ describe("Core", async () => {
         await erc721Instance.approve(coreInstance.address, 3);
         await coreInstance.addTokenToTrade(tradeId, 3, 4);
 
-        await erc721Instance.connect(acc[1]).mint();
-        await erc721Instance.connect(acc[1]).approve(coreInstance.address, 4);
-        await coreInstance.connect(acc[1]).addTokenToTrade(tradeId, 4, 5);
+        await erc721Instance.connect(acc[0]).mint();
+        await erc721Instance.connect(acc[0]).approve(coreInstance.address, 4);
+        await coreInstance.connect(acc[0]).addTokenToTrade(tradeId, 4, 5);
 
         await coreInstance.changeUserReadiness(tradeId, true);
-        await coreInstance.connect(acc[1]).changeUserReadiness(tradeId, true);
+        await coreInstance.connect(acc[0]).changeUserReadiness(tradeId, true);
 
-        // Token 1 and 3 should be under 'acc[1]' ownership
-        expect(await erc721Instance.ownerOf(1)).to.equal(acc[1].address);
-        expect(await erc721Instance.ownerOf(3)).to.equal(acc[1].address);
+        // Token 1 and 3 should be under 'acc[0]' ownership
+        expect(await erc721Instance.ownerOf(1)).to.equal(acc[0].address);
+        expect(await erc721Instance.ownerOf(3)).to.equal(acc[0].address);
 
         // Token 2 and 4 should be under 'owner' ownership
         expect(await erc721Instance.ownerOf(2)).to.equal(owner.address);
@@ -182,7 +248,7 @@ describe("Core", async () => {
     return coreInstance.startTrade(
       tradeId,
       owner.address,
-      acc[1].address,
+      acc[0].address,
       erc721Instance.address,
       erc721Instance.address,
       cellNumber
@@ -191,11 +257,11 @@ describe("Core", async () => {
 
   const approveTokens = async (token1, token2) => {
     await erc721Instance.approve(coreInstance.address, token1);
-    await erc721Instance.connect(acc[1]).approve(coreInstance.address, token2);
+    await erc721Instance.connect(acc[0]).approve(coreInstance.address, token2);
   };
 
   const createTwoTokens = async () => {
     await erc721Instance.mint();
-    await erc721Instance.connect(acc[1]).mint();
+    await erc721Instance.connect(acc[0]).mint();
   };
 })
