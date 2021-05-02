@@ -7,6 +7,10 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "hardhat/console.sol";
 
+/**
+@title Core
+@author The community
+ */
 contract Core is Context, ERC721Holder {
     // Tracks initial state of trade;
     mapping(bytes32 => Trade) private _trades;
@@ -65,6 +69,16 @@ contract Core is Context, ERC721Holder {
 
     enum TradeState { NULL, STARTED, FINALIZED }
 
+    /**     PUBLIC       */
+    /**
+    @notice Starts a trade between two users and two contracts
+    @param _tradeId The ID of the trade
+    @param _starter The address that started the trade
+    @param _receiver The address that was invited into the trade
+    @param _starterContractAddress ERC721 address of the contract where the starter has tokens
+    @param _receiverContractAddress ERC721 address of the contract where the receiver has tokens
+    @param _amountOfCells Upper limit of the trade table
+     */
     function startTrade(
         bytes32 _tradeId,
         address _starter,
@@ -94,6 +108,12 @@ contract Core is Context, ERC721Holder {
         emit TradeStarted(_tradeId, _starter, _receiver, _starterContractAddress, _receiverContractAddress);
     }
 
+    /**
+    @notice Adds a single token to a trade
+    @param _tradeId ID of the trade
+    @param _tokenId ID to add to the trade
+    @param _cell Number of the cell where the token was put in the table
+     */
     function addTokenToTrade(bytes32 _tradeId, uint256 _tokenId, uint256 _cell) external {
         ContractTracker memory userTracker = _contractsTracker[_tradeId][_msgSender()];
         Trade memory trade = _trades[_tradeId];
@@ -119,6 +139,11 @@ contract Core is Context, ERC721Holder {
         emit TokenAddedToTrade(_tradeId, _msgSender(), _tokenId, _cell);
     }
 
+    /**
+    @notice Removes a token from a trade
+    @param _tradeId ID of the trade
+    @param _cell Number of the cell of the token we want to remove
+     */
     function removeTokenFromTrade(bytes32 _tradeId, uint256 _cell) external {
         uint256 tokenIdInCell = _cellToTokenId[_tradeId][_cell];
 
@@ -138,6 +163,12 @@ contract Core is Context, ERC721Holder {
         emit TokenRemovedFromTrade(_tradeId, _msgSender(), tokenIdInCell, _cell);
     }
 
+    /**
+    @notice Changes state of an user in a trade
+    @dev This sets the readiness of a person, if both are ready the trade will complete
+    @param _tradeId ID of the trade
+    @param _state State the user wants to have in the trade
+     */
     function changeUserReadiness(bytes32 _tradeId, bool _state) external {
         Trade storage trade = _trades[_tradeId];
 
@@ -162,6 +193,17 @@ contract Core is Context, ERC721Holder {
         emit UserTradeStateChange(_tradeId, _msgSender(), _state);
     }
 
+    /**     VIEWS       */
+    /**
+    @notice Gets information about a trade
+    @param _tradeId ID of the trade
+    @return address Representing the starter of the trade
+    @return address Representing the receiver of the trade
+    @return address Representing the contract of the starter
+    @return address Representing contract of the receiver
+    @return uint256 Representing the amount of cells in a trade
+    @return uint256 Representing the state of the contract
+     */
     function getTrade(bytes32 _tradeId)
         external view
         returns (address, address, IERC721, IERC721, uint256, TradeState) {
@@ -176,6 +218,8 @@ contract Core is Context, ERC721Holder {
                 trade.state
             );
     }
+
+    /**     PRIVATE       */
 
     function _ownerOfToken(address _user, uint256 _tokenId, IERC721 _contract) private view returns(bool) {
         return _contract.ownerOf(_tokenId) == _user;
