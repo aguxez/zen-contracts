@@ -1,7 +1,8 @@
 node_modules
+coverage
+.vscode
+coverage.json
 
 #Hardhat files
 cache
 artifacts
-coverage
-.vscode
