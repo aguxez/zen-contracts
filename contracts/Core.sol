@@ -32,8 +32,8 @@ contract Core is Context, ERC721Holder {
         address receiver;
         IERC721 starterContract;
         IERC721 receiverContract;
-        uint256 amountOfCells;
         TradeState state;
+        uint256 amountOfCells;
     }
 
     struct ContractTracker {
