@@ -49,25 +49,15 @@ contract Core is Context, ERC721Holder {
         IERC721 _receiverContract
     );
 
-    event TokenAddedToTrade(
-        bytes32 indexed _tradeId,
-        address _owner,
-        uint256 _tokenId,
-        uint256 _cell
-    );
+    event TokenAddedToTrade(bytes32 indexed _tradeId, address _owner, uint256 _tokenId, uint256 _cell);
 
-    event TokenRemovedFromTrade(
-        bytes32 indexed _tradeId,
-        address _owner,
-        uint256 _tokenId,
-        uint256 _cell
-    );
+    event TokenRemovedFromTrade(bytes32 indexed _tradeId, address _owner, uint256 _tokenId, uint256 _cell);
 
     event TradeExtended(bytes32 indexed _tradeId, address _owner, uint256 _tokenId);
     event TradeFinalized(bytes32 _tradeId);
     event UserTradeStateChange(bytes32 indexed _tradeId, address _user, bool _isReady);
 
-    enum TradeState { NULL, STARTED, FINALIZED }
+    enum TradeState {NULL, STARTED, FINALIZED}
 
     /**     PUBLIC       */
     /**
@@ -114,7 +104,11 @@ contract Core is Context, ERC721Holder {
     @param _tokenId ID to add to the trade
     @param _cell Number of the cell where the token was put in the table
      */
-    function addTokenToTrade(bytes32 _tradeId, uint256 _tokenId, uint256 _cell) external {
+    function addTokenToTrade(
+        bytes32 _tradeId,
+        uint256 _tokenId,
+        uint256 _cell
+    ) external {
         ContractTracker memory userTracker = _contractsTracker[_tradeId][_msgSender()];
         Trade memory trade = _trades[_tradeId];
         uint256 tokenIdInCell = _cellToTokenId[_tradeId][_cell];
@@ -174,9 +168,8 @@ contract Core is Context, ERC721Holder {
 
         // This returns the check boolean we need to use in the require depending on the `_state`
         // argument
-        bool userState = _state
-            ? !_isUserReadyToTrade[_tradeId][_msgSender()]
-            : _isUserReadyToTrade[_tradeId][_msgSender()];
+        bool userState =
+            _state ? !_isUserReadyToTrade[_tradeId][_msgSender()] : _isUserReadyToTrade[_tradeId][_msgSender()];
 
         // Pre-checks
         require(_msgSender() == trade.starter || _msgSender() == trade.receiver, "Core: user not involved in trade");
@@ -205,36 +198,49 @@ contract Core is Context, ERC721Holder {
     @return uint256 Representing the state of the contract
      */
     function getTrade(bytes32 _tradeId)
-        external view
-        returns (address, address, IERC721, IERC721, uint256, TradeState) {
-            Trade memory trade = _trades[_tradeId];
+        external
+        view
+        returns (
+            address,
+            address,
+            IERC721,
+            IERC721,
+            uint256,
+            TradeState
+        )
+    {
+        Trade memory trade = _trades[_tradeId];
 
-            return (
-                trade.starter,
-                trade.receiver,
-                trade.starterContract,
-                trade.receiverContract,
-                trade.amountOfCells,
-                trade.state
-            );
+        return (
+            trade.starter,
+            trade.receiver,
+            trade.starterContract,
+            trade.receiverContract,
+            trade.amountOfCells,
+            trade.state
+        );
     }
 
     /**     PRIVATE       */
 
-    function _ownerOfToken(address _user, uint256 _tokenId, IERC721 _contract) private view returns(bool) {
+    function _ownerOfToken(
+        address _user,
+        uint256 _tokenId,
+        IERC721 _contract
+    ) private view returns (bool) {
         return _contract.ownerOf(_tokenId) == _user;
     }
 
-    function _weAreApproved(IERC721 _contract, uint256 _tokenId) private view returns(bool) {
+    function _weAreApproved(IERC721 _contract, uint256 _tokenId) private view returns (bool) {
         return _contract.getApproved(_tokenId) == address(this);
     }
 
     function _maybeTransferTokens(bytes32 _tradeId, Trade storage _trade) private {
         // If both users have accepted already we're going to send all the tokens that are being tracked
-        bool isStartedReady = _isUserReadyToTrade[_tradeId][_trade.starter];
+        bool isStarterReady = _isUserReadyToTrade[_tradeId][_trade.starter];
         bool isReceiverReady = _isUserReadyToTrade[_tradeId][_trade.receiver];
 
-        if (isStartedReady && isReceiverReady) {
+        if (isStarterReady && isReceiverReady) {
             _trade.state = TradeState.FINALIZED;
 
             _verifyAndSendTokens(_tradeId, _trade);
@@ -256,7 +262,11 @@ contract Core is Context, ERC721Holder {
         }
     }
 
-    function _sendTokenToAddress(Trade memory _trade, uint256 _tokenId, address _tokenOwner) private {
+    function _sendTokenToAddress(
+        Trade memory _trade,
+        uint256 _tokenId,
+        address _tokenOwner
+    ) private {
         // Will check to which account the token should be sent to.
         if (_tokenOwner == _trade.starter) {
             _trade.starterContract.safeTransferFrom(address(this), _trade.receiver, _tokenId);

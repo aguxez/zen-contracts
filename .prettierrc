@@ -1,7 +1,4 @@
 {
-  "tabWidth": 2,
-  "useTabs": false,
-  "parser": "json",
   "overrides": [
     {
       "files": "*.sol",
