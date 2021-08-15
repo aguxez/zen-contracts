@@ -1,8 +1,8 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { Core } from "../types/ethers-contracts/Core";
-import { ERC721Mock } from "../types/ethers-contracts/ERC721Mock";
+import { Core } from "../types/Core";
+import { ERC721Mock } from "../types/ERC721Mock";
 
 const tradeId = ethers.utils.formatBytes32String("myTradeId");
 
